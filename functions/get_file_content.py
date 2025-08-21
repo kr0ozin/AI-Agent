@@ -1,5 +1,6 @@
 import os
 from config import FILE_READ_CHAR_LIMIT
+from google.genai import types
 
 def get_file_content(working_dir, file_path):
     abs_working_dir = os.path.abspath(working_dir)
@@ -19,3 +20,17 @@ def get_file_content(working_dir, file_path):
 
     except Exception as e:
         return f"Error: {str(e)}"
+
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
+    description="Lists content in the specified file along with its size, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The file to list content from, relative to the working directory.",
+            ),
+        },
+    ),
+)
