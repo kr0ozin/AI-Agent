@@ -1,3 +1,5 @@
+from math import e
+from operator import call
 import os
 from dotenv import load_dotenv
 from google import genai
@@ -7,6 +9,7 @@ from functions.get_files_info import schema_get_files_info
 from functions.get_file_content import schema_get_file_content
 from functions.run_python import schema_run_python_file
 from functions. write_file import schema_write_file
+from functions.call_function import call_function
 import sys
 import argparse
 
@@ -37,7 +40,15 @@ def main():
         types.Content(role="user", parts=[types.Part(text=user_prompt)]),
     ]
 
-    generate_content(client, messages, verbose)
+    #Start a loop to call the LLM until a response is given, max 20 iterations.
+    for i in range(20):
+        try:
+            llm_answer = generate_content(client, messages, verbose)
+            if llm_answer:
+                print(f'Response: {llm_answer}')
+                break
+        except Exception as e:
+            return f"Error: executing Python file: {str(e)}"
 
 def generate_content(client, messages, verbose):
     
@@ -57,15 +68,29 @@ def generate_content(client, messages, verbose):
             tools=[available_functions], system_instruction=SYSTEM_PROMPT
             )
     )
+
+    for candidate in response.candidates:
+        messages.append(candidate.content)
+
     if verbose:
         print("Prompt tokens: " + str(response.usage_metadata.prompt_token_count))
         print("Response tokens: " + str(response.usage_metadata.candidates_token_count))
 
     if response.function_calls:
         for function_call in response.function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
+            function_call_result = call_function(function_call, verbose)
+
+            if not function_call_result.parts[0].function_response.response:
+                raise Exception(f"Error: The expected response structure is missing.")
+            if function_call_result.parts[0].function_response.response and verbose:
+                print(f"-> {function_call_result.parts[0].function_response.response}")
+
+            messages.append(types.Content(role="user", parts=[function_call_result.parts[0]]))
+        return None
     else:
-        print(f"Response: \n{response.text}")
+        return response.text
+
+
 
 
 
